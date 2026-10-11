@@ -148,7 +148,10 @@ Scope {
       // line stays put as the list shrinks.
       y: Math.max(Style.gapsOut, Math.round((panel.height - panel.maxHeight) / 2))
       radius: Style.cornerRadius
-      color: Color.menu.background
+      // Nearly solid: Omarchy's menus are see-through (the theme's
+      // menu.background-alpha), which made the text behind hard to tell apart
+      // from the sessions' prompts.
+      color: Util.alpha(Color.menu.background, 0.97)
       border.color: Color.menu.border
       border.width: Math.max(1, Style.space(2))
 
