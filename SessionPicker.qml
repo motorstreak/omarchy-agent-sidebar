@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
+import qs.Ui
 
 // The Claude session list (SUPER + SHIFT + A), in the look of Omarchy's menus.
 // bin/agent-sidebar sends the sessions; typing searches their names and
@@ -138,7 +139,7 @@ Scope {
       onClicked: root.cancel()
     }
 
-    Rectangle {
+    BorderSurface {
       id: card
 
       width: Math.min(Style.space(620), panel.width - Style.gapsOut * 2)
@@ -151,9 +152,10 @@ Scope {
       // Nearly solid: Omarchy's menus are see-through (the theme's
       // menu.background-alpha), which made the text behind hard to tell apart
       // from the sessions' prompts.
-      color: Util.alpha(Color.menu.background, 0.97)
-      border.color: Color.menu.border
-      border.width: Math.max(1, Style.space(2))
+      // As Omarchy's menus: their background, border and its width from
+      // shell.toml's [menu] (the Window Style plugin's Menus tab).
+      color: Color.menu.background
+      borderSpec: Border.surfaceSpec("menu", "border", Color.menu.border, Math.max(1, Style.space(2)))
 
       MouseArea { anchors.fill: parent; onClicked: {} }
 
