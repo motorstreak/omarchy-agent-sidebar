@@ -1,0 +1,424 @@
+#!/bin/bash
+# Launches the agent sidebar (run by hypr/agent.lua) with your Omarchy default
+# coding agent (`omarchy default agent`).
+#   agent-sidebar launch   open the sidebar
+#   agent-sidebar sessions SUPER + SHIFT + A. Claude: open the session list
+#                          (SessionPicker.qml). Other agents: start afresh
+#   agent-sidebar new [--] [NAME]
+#                          Claude, from the list: a new session named NAME
+#                          (none: the date and time)
+#   agent-sidebar new --handoff
+#                          Claude, from the list: the session a waiting
+#                          question was handed off to
+#   agent-sidebar open ID NAME
+#                          Claude, from the list: back to session ID (shown if
+#                          it's running, otherwise resumed)
+#   agent-sidebar handoff NAME
+#                          Claude only: the next SUPER + SHIFT + A (within an
+#                          hour) offers a session named NAME that starts with
+#                          the question read from stdin (for moving a new
+#                          topic out of the current session)
+#
+# Any agent runs through Omarchy's own launcher (`omarchy-agent --inline`), so it
+# starts exactly as SUPER + SHIFT + CTRL + A starts it. Claude Code is the
+# exception: that launcher can't pass session options, so Claude is run
+# directly to keep the sidebar pinned to one session (closing the window and
+# relaunching resumes the same conversation) and to name new sessions (a name
+# you give, or a timestamp) so they can be found again here or in Claude's
+# /resume picker.
+
+class=${AGENT_SIDEBAR_CLASS:-sidebar.agent}
+state_home=${XDG_STATE_HOME:-$HOME/.local/state}
+state_dir=$state_home/omarchy-agent-sidebar
+# Before 0.1.0 of this plugin, the Sidebar plugin kept the agent's state.
+if [[ -d $state_home/omarchy-sidebar/agent && ! -e $state_dir ]]; then
+  mv "$state_home/omarchy-sidebar/agent" "$state_dir"
+fi
+claude_dir=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
+
+notify() {
+  notify-send -a "Agent Sidebar" -- "Agent sidebar" "$1" 9>&-
+}
+
+# Claude in the terminal's own 16 colours, so it follows the theme the sidebar
+# paints its terminal in (bin/sidebar-theme) the moment one is picked, as cliamp
+# does; its usual themes use fixed colours. Light or dark by the agent's theme
+# (or Omarchy's): colors.toml says `mode = "light"`. The theme is the Sidebar
+# plugin's pick for the "agent" kind.
+ansi_theme() {
+  local name colors="$state_home/omarchy/current/theme/colors.toml" root
+  name=$(head -n1 "$state_home/omarchy-sidebar/themes/agent" 2>/dev/null)
+  if [[ $name =~ ^[A-Za-z0-9._-]+$ ]]; then
+    for root in "$HOME/.config/omarchy/themes" "${OMARCHY_PATH:-/usr/share/omarchy}/themes"; do
+      [[ -f $root/$name/colors.toml ]] && colors=$root/$name/colors.toml && break
+    done
+  fi
+  if grep -qE '^\s*mode\s*=\s*"light"' "$colors" 2>/dev/null; then
+    echo light-ansi
+  else
+    echo dark-ansi
+  fi
+}
+claude=(claude --settings "{\"theme\":\"$(ansi_theme)\"}")
+
+# A question waiting for its own session: its name, and the question itself.
+handoff_name=$state_dir/handoff-name
+handoff_prompt=$state_dir/handoff-prompt
+first_prompt=$state_dir/first-prompt
+
+case ${1:-} in
+handoff)
+  name=${2:-}
+  name=${name//$'\n'/ }
+  if [[ -z $name ]]; then
+    echo "Usage: agent-sidebar handoff NAME < question" >&2
+    exit 1
+  fi
+  mkdir -p "$state_dir"
+  cat >"$handoff_prompt"
+  if [[ ! -s $handoff_prompt ]]; then
+    rm -f "$handoff_prompt"
+    echo "agent-sidebar handoff: no question on stdin" >&2
+    exit 1
+  fi
+  echo "${name:0:80}" >"$handoff_name"
+  exit 0
+  ;;
+first-prompt)
+  # Run in the sidebar's terminal: start the new session with the waiting
+  # question. It comes from a file, so quotes and line breaks reach Claude
+  # untouched (a terminal's -e can mangle them).
+  prompt=$(<"$first_prompt")
+  rm -f "$first_prompt"
+  # A question starting with "-" would be read as an option.
+  [[ $prompt == -* ]] && prompt=" $prompt"
+  exec "${claude[@]}" --session-id "$(<"$state_dir/session-id")" --name "$(<"$state_dir/session-name")" "$prompt"
+  ;;
+esac
+
+# Starting the agent raises the dim behind sidebars ahead of it showing (see
+# hypr/agent.lua). However this ends (the list opened, a failed start, the
+# agent up), have the Sidebar plugin set it for what actually shows.
+settle() {
+  hyprctl eval 'if sidebar and sidebar.settle then sidebar.settle() end' >/dev/null 2>&1 9>&-
+}
+trap settle EXIT
+
+# From the session list (not through hypr/agent.lua): raise it here.
+case ${1:-} in
+new | open) hyprctl eval 'if sidebar and sidebar.dim then sidebar.dim() end' >/dev/null 2>&1 ;;
+esac
+
+for cmd in jq flock hyprctl; do
+  if ! command -v "$cmd" >/dev/null; then
+    notify "Needs $cmd, which isn't installed"
+    exit 1
+  fi
+done
+
+agent=$(omarchy-default-agent)
+if [[ -z $agent ]]; then
+  # Omarchy ships without a default; offer the choice instead of doing nothing.
+  settle
+  exec omarchy-menu summon setup.default.agent
+fi
+if omarchy-cmd-missing "$agent"; then
+  notify "$agent (the Omarchy default agent) isn't installed. Choose another with: omarchy default agent <name>"
+  exit 1
+fi
+
+# Agents keep sessions per directory; run where Omarchy's launcher does, so the
+# folder is trusted and sessions land in one place.
+work_dir=$HOME
+[[ -d $HOME/Work ]] && work_dir=$HOME/Work
+
+# Claude's folder for this directory's sessions: every character other than
+# an ASCII letter or digit becomes "-".
+projects=$claude_dir/projects/$(perl -CS -pe 's/[^a-zA-Z0-9\n]/-/g' <<<"$work_dir")
+
+# One instance at a time: a second run while the sidebar is still starting
+# would launch a second agent (on the same session, for Claude). The lock is
+# isn't held while the session list is open: picking from it runs this again.
+mkdir -p "$state_dir" && exec 9>"$state_dir/lock" || {
+  notify "Can't write to $state_dir"
+  exit 1
+}
+if ! flock -n 9; then
+  [[ ${1:-launch} == launch ]] || notify "Still starting the sidebar; try again in a moment"
+  exit 0
+fi
+
+# Each Claude session's window has its own class ("<class>.<first 8 of its id>"),
+# so moving to another session leaves the one before running, hidden, to come
+# back to. Other agents use the plain class. A window from before 0.14.0 has the
+# plain class too: legacy-session records which session it runs.
+legacy_file=$state_dir/legacy-session
+
+session_class() {
+  if [[ $agent == claude ]]; then
+    echo "$class.${1:0:8}"
+  else
+    echo "$class"
+  fi
+}
+
+# The windows of session $1 (default: the current one).
+windows() {
+  local session=${1-$(cat "$state_dir/session-id" 2>/dev/null)} legacy=false
+  [[ $agent == claude && -n $session && $session == "$(cat "$legacy_file" 2>/dev/null)" ]] && legacy=true
+  hyprctl clients -j | jq -r --arg c "$(session_class "$session")" --arg b "$class" --argjson l "$legacy" \
+    '.[] | select(.class == $c or ($l and .class == $b)) | .address'
+}
+
+window_open() {
+  [[ -n $(windows "$@") ]]
+}
+
+# A plain-class Claude window from before 0.14.0 runs the session that was
+# current when it was first seen; once it's gone, there's nothing to record.
+if [[ $agent == claude ]]; then
+  if [[ -z $(hyprctl clients -j | jq -r --arg b "$class" '.[] | select(.class == $b) | .address') ]]; then
+    rm -f "$legacy_file"
+  elif [[ ! -f $legacy_file && -s $state_dir/session-id ]]; then
+    cp "$state_dir/session-id" "$legacy_file"
+  fi
+fi
+
+# Fails (and says so) if the window won't close, so callers don't switch
+# sessions and launch a second sidebar next to it.
+close_window() {
+  local address
+  for address in $(windows); do
+    hyprctl dispatch "hl.dsp.window.close({ window = \"address:$address\" })" >/dev/null
+  done
+  for _ in {1..30}; do window_open || return 0; sleep 0.1; done
+  notify "The sidebar didn't close; leaving it as is"
+  return 1
+}
+
+valid_uuid() {
+  [[ $1 =~ ^[0-9a-f]{8}-([0-9a-f]{4}-){3}[0-9a-f]{12}$ ]]
+}
+
+# Sessions this sidebar started, by id: the session picker lists these whatever
+# their names (older ones are recognised by their timestamp names).
+sessions_file=$state_dir/sessions
+# The session list's notes on each transcript (list_sessions).
+menu_cache=$state_dir/menu-cache
+
+# A new session, named $1 (default: the date and time): one line, no
+# surrounding spaces, at most 80 characters.
+new_session() {
+  local id name=${1:-}
+  name=${name//$'\n'/ }
+  name=$(sed -E 's/^[[:space:]]+|[[:space:]]+$//g' <<<"$name")
+  name=${name:0:80}
+  [[ -n $name ]] || name=$(date '+%Y-%m-%d %H:%M')
+  id=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid)
+  id=${id,,}
+  echo "$id" >"$state_dir/session-id"
+  echo "$name" >"$state_dir/session-name"
+  echo "$id" >>"$sessions_file"
+}
+
+# A question waiting from `agent-sidebar handoff`, in the last hour: prints its
+# session's name. An older one is dropped.
+waiting_handoff() {
+  [[ -s $handoff_prompt && -s $handoff_name ]] || return 1
+  if [[ -z $(find "$handoff_prompt" -mmin -60) ]]; then
+    rm -f "$handoff_prompt" "$handoff_name"
+    return 1
+  fi
+  cat "$handoff_name"
+}
+
+# Claude's transcript for a session in the sidebar's folder (Claude only resumes
+# a session from the directory it was started in).
+transcript() {
+  [[ -f $projects/$1.jsonl ]] && echo "$projects/$1.jsonl"
+}
+
+# The newest sidebar sessions for the list, one per line:
+# "<id>\t<title>\t<prompts, newest first>\t<1 if current>".
+list_sessions() {
+  local current f id title titles first messages prompt stamp cache cached count=0
+  local -A ours=()
+  current=$(cat "$state_dir/session-id" 2>/dev/null)
+  if [[ -f $sessions_file ]]; then
+    while IFS= read -r id; do
+      [[ -n $id ]] && ours[$id]=1
+    done <"$sessions_file"
+  fi
+
+  mkdir -p "$menu_cache"
+  while IFS= read -r f; do
+    id=${f##*/}
+    id=${id%.jsonl}
+    # What the list needs from a transcript (its first and last title, whether
+    # it has a message, its typed prompts) is kept until the file changes:
+    # reading them out of large transcripts is what made the list slow.
+    stamp=$(stat -c '%Y %s' "$f")
+    cache=$menu_cache/$id
+    cached=""
+    [[ -f $cache ]] && read -r cached <"$cache"
+    if [[ $cached != "$stamp" ]]; then
+      # The last title wins (a session can be renamed). One grep pass over the
+      # file: reversing whole transcripts to find it was slow with large ones.
+      titles=$(grep -F '"type":"custom-title"' "$f" | jq -r '.customTitle // empty' 2>/dev/null)
+      messages=0
+      grep -q '"type":"user"' "$f" && messages=1
+      # The session's typed prompts, newest first: the list shows the start of
+      # this line and searches all of it. Only lines whose content is text
+      # (typed, not tool results, which can be huge) go to jq; lines that don't
+      # parse (one being written right now) are skipped.
+      prompt=$(grep -F '"message":{"role":"user","content":"' "$f" |
+        jq -nrR '[inputs | fromjson? | select(.type == "user" and .isMeta != true and (.message.content | type) == "string")
+                  | .message.content | select(startswith("<") | not) | gsub("\\s+"; " ")]
+                 | reverse | join(" · ") | .[0:500]' 2>/dev/null | tr -d '\n')
+      printf '%s\n%s\n%s\n%s\n%s\n' "$stamp" "$(head -n1 <<<"$titles")" "$(tail -n1 <<<"$titles")" \
+        "$messages" "$prompt" >"$cache"
+    fi
+    { read -r _; IFS= read -r first; IFS= read -r title; read -r messages; IFS= read -r prompt; } <"$cache"
+    # Started here: listed in sessions_file, or (older ones) first named by
+    # timestamp; the first name counts, so a later /rename keeps it listed.
+    [[ -n ${ours[$id]:-} || $first =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}\ [0-9]{2}:[0-9]{2}$ ]] || continue
+    [[ -n $title ]] || title=${id:0:8}
+    # Sessions without a message can't be resumed; leave them out.
+    ((messages)) || continue
+    [[ -n $prompt ]] || prompt="(no typed prompts)"
+    printf '%s\t%s\t%s\t%s\n' "$id" "${title//$'\t'/ }" "${prompt//$'\t'/ }" "$([[ $id == "$current" ]] && echo 1)"
+    ((++count >= 100)) && break
+  done < <(ls -t "$projects"/*.jsonl 2>/dev/null | head -300)
+}
+
+# Opens the session list (SessionPicker.qml) on the focused monitor.
+show_sessions() {
+  local payload
+  payload=$(list_sessions | jq -Rn \
+    --arg class "$class" \
+    --arg script "$(readlink -f "$0")" \
+    --arg monitor "$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')" \
+    --arg handoff "$(waiting_handoff)" \
+    '{class: $class, script: $script, monitor: $monitor, handoff: $handoff,
+      sessions: [inputs | split("\t") | {id: .[0], title: .[1], detail: .[2], current: (.[3] == "1")}]}')
+  if ! omarchy-shell -q agent-sidebar-sessions open "$payload" >/dev/null 2>&1 9>&-; then
+    notify "Couldn't open the session list; is the Agent Sidebar plugin enabled? (omarchy restart shell after installing)"
+  fi
+}
+
+# The session before a new one stays running, hidden (the list brings it back),
+# unless it has no message yet: nothing to come back to.
+leave_current() {
+  local file
+  file=$(transcript "$(cat "$state_dir/session-id" 2>/dev/null)")
+  if [[ -z $file ]] || ! grep -q '"type":"user"' "$file"; then
+    close_window || return 1
+  fi
+}
+
+claude_only() {
+  if [[ $agent != claude ]]; then
+    notify "Saved sessions are only available with Claude Code"
+    exit 0
+  fi
+}
+
+case ${1:-launch} in
+launch)
+  # The toggle key only launches when no sidebar exists; don't add a second.
+  window_open && exit 0
+  ;;
+sessions)
+  if [[ $agent == claude ]]; then
+    show_sessions
+    exit 0
+  fi
+  # Other agents have no sessions here: start afresh.
+  close_window || exit 1
+  ;;
+new)
+  claude_only
+  rm -f "$first_prompt"
+  if [[ ${2:-} == --handoff ]]; then
+    name=$(waiting_handoff) || {
+      notify "The handed-off question is gone (they wait an hour)"
+      exit 0
+    }
+    mv -f "$handoff_prompt" "$first_prompt"
+    rm -f "$handoff_name"
+  else
+    # The list passes a typed name after "--", whatever it starts with.
+    [[ ${2:-} == -- ]] && name=${3:-} || name=${2:-}
+  fi
+  leave_current || exit 1
+  new_session "$name"
+  ;;
+open)
+  claude_only
+  valid_uuid "${2:-}" || {
+    echo "Usage: agent-sidebar open ID NAME" >&2
+    exit 1
+  }
+  # The session before stays running, hidden. The picked one: shown if it's
+  # still running, otherwise resumed below.
+  echo "$2" >"$state_dir/session-id"
+  echo "${3:-${2:0:8}}" >"$state_dir/session-name"
+  if window_open; then
+    hyprctl eval 'agent_sidebar.show()' >/dev/null
+    exit 0
+  fi
+  ;;
+*)
+  echo "Usage: agent-sidebar [launch|sessions|new [NAME|--handoff]|open ID NAME|handoff NAME]" >&2
+  exit 1
+  ;;
+esac
+
+cd "$work_dir" || exit 1
+
+if [[ $agent == claude ]]; then
+  session=$(cat "$state_dir/session-id" 2>/dev/null)
+  if ! valid_uuid "$session"; then
+    new_session
+    session=$(<"$state_dir/session-id")
+  fi
+  name=$(cat "$state_dir/session-name" 2>/dev/null)
+  [[ -n $name ]] || name=$(date '+%Y-%m-%d %H:%M')
+
+  # Only a session with a message in it can be resumed; one with none yet
+  # starts under the same id.
+  file=$(transcript "$session")
+  elsewhere=("$claude_dir"/projects/*/"$session".jsonl)
+  if [[ -n $file ]] && grep -q '"type":"user"' "$file"; then
+    command=("${claude[@]}" --resume "$session")
+  elif [[ -n $file || -f ${elsewhere[0]} ]]; then
+    # No message yet, or filed under another folder (Claude won't resume it
+    # here): start a fresh session (with the same name) rather than reuse the id.
+    new_session "$name"
+    command=("${claude[@]}" --session-id "$(<"$state_dir/session-id")" --name "$(<"$state_dir/session-name")")
+  elif [[ -s $first_prompt ]]; then
+    # A new session for a waiting question (new --handoff).
+    command=("$(readlink -f "$0")" first-prompt)
+  else
+    command=("${claude[@]}" --session-id "$session" --name "$name")
+  fi
+  # A question is only for the session started for it.
+  [[ ${command[1]:-} == first-prompt ]] || rm -f "$first_prompt"
+else
+  command=(omarchy-agent --inline)
+fi
+
+# Hold the lock until the window exists (cold starts can be slow: up to a
+# minute) and has stayed open a moment, so an agent that fails at once is
+# reported, and a second press meanwhile can't start a second agent on the
+# same session; the terminal mustn't inherit the lock.
+omarchy-launch-tui --app-id="$(session_class "$(cat "$state_dir/session-id" 2>/dev/null)")" "${command[@]}" 9>&- &
+for _ in {1..600}; do
+  if window_open; then
+    sleep 1
+    window_open && exit 0
+    break
+  fi
+  sleep 0.1
+done
+notify "The agent didn't stay open; try running it with SUPER + SHIFT + CTRL + A to see why"
