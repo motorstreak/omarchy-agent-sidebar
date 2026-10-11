@@ -26,13 +26,14 @@ Scope {
   readonly property string name: filter.trim().replace(/\s+/g, " ").slice(0, 80)
 
   // Every word of the search, in any order, in the name or the prompts.
-  readonly property var matches: {
-    var words = filter.toLowerCase().split(/\s+/).filter(function(w) { return w !== "" })
+  function matching(search) {
+    var words = search.toLowerCase().split(/\s+/).filter(function(w) { return w !== "" })
     return sessions.filter(function(s) {
       var text = (s.title + " " + s.detail).toLowerCase()
       return words.every(function(w) { return text.indexOf(w) >= 0 })
     })
   }
+  readonly property var matches: matching(filter)
   readonly property bool handoffShown: handoff !== "" && (filter === ""
     || handoff.toLowerCase().indexOf(filter.toLowerCase().trim()) >= 0)
   // The rows always on top: "New session", then any handed-off question.
@@ -55,7 +56,11 @@ Scope {
 
   // Typing: the best match, or "New session" when nothing matches. Cleared:
   // "New session" (or the waiting question), as the key always started one.
-  onFilterChanged: index = filter === "" ? (handoffShown ? 1 : 0) : (matches.length > 0 ? pinned : 0)
+  // (Worked out afresh: the bindings above may not have caught up yet.)
+  onFilterChanged: {
+    var handoffToo = handoff !== "" && (filter === "" || handoff.toLowerCase().indexOf(filter.toLowerCase().trim()) >= 0)
+    index = filter === "" ? (handoffToo ? 1 : 0) : (matching(filter).length > 0 ? (handoffToo ? 2 : 1) : 0)
+  }
 
   function move(step) {
     index = Math.max(0, Math.min(count - 1, index + step))
