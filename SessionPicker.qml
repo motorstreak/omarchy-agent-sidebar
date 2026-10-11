@@ -86,9 +86,15 @@ Scope {
     target: "agent-sidebar-sessions"
     function open(payload: string): string { root.show(payload); return "ok" }
     function state(): string { return (root.open ? "open " : "closed ") + root.index + " " + root.count + " " + root.filter }
-    // For tests: type, press Enter.
+    // For tests: type, press Enter, or close.
     function type(text: string): string { root.filter = text; return "ok" }
     function pick(): string { root.commit(); return "ok" }
+    function close(): string { root.cancel(); return "ok" }
+    function rows(): string {
+      var out = [root.name === "" ? "New session" : "New session: " + root.name]
+      if (root.handoffShown) out.push("handoff: " + root.handoff)
+      return out.concat(root.matches.map(function(s) { return s.title })).join("\n")
+    }
   }
 
   PanelWindow {
