@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // The Claude session list (SUPER + SHIFT + A), in the look of Omarchy's menus.
@@ -131,7 +132,7 @@ Scope {
 
     Rectangle {
       anchors.fill: parent
-      color: Color.menu.scrim
+      color: Commons.Color.menu.scrim
     }
 
     MouseArea {
@@ -154,8 +155,8 @@ Scope {
       // from the sessions' prompts.
       // As Omarchy's menus: their background, border and its width from
       // shell.toml's [menu] (the Window Style plugin's Menus tab).
-      color: Color.menu.background
-      borderSpec: Border.surfaceSpec("menu", "border", Color.menu.border, Math.max(1, Style.space(2)))
+      color: Commons.Color.menu.background
+      borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, Math.max(1, Style.space(2)))
 
       MouseArea { anchors.fill: parent; onClicked: {} }
 
@@ -204,7 +205,7 @@ Scope {
           verticalAlignment: Text.AlignVCenter
           textFormat: Text.PlainText
           text: root.filter || "Claude sessions…"
-          color: Color.menu.text
+          color: Commons.Color.menu.text
           opacity: root.filter ? 1 : 0.58
           font.family: Style.font.menuFamily
           font.pixelSize: Style.font.heading
@@ -269,7 +270,7 @@ Scope {
     width: parent ? parent.width : 0
     height: visible ? panel.rowHeight : 0
     radius: Style.cornerRadius
-    color: current ? Color.menu.selectedBackground : "transparent"
+    color: current ? Commons.Color.menu.selectedBackground : "transparent"
 
     Text {
       id: glyph
@@ -280,7 +281,7 @@ Scope {
       horizontalAlignment: Text.AlignHCenter
       textFormat: Text.PlainText
       text: row.icon
-      color: row.current ? Color.menu.selectedText : Color.menu.text
+      color: row.current ? Commons.Color.menu.selectedText : Commons.Color.menu.text
       font.family: Style.font.menuFamily
       font.pixelSize: Style.font.iconLarge
     }
@@ -297,7 +298,7 @@ Scope {
         width: parent.width
         textFormat: Text.PlainText
         text: row.label
-        color: row.current ? Color.menu.selectedText : Color.menu.text
+        color: row.current ? Commons.Color.menu.selectedText : Commons.Color.menu.text
         font.family: Style.font.menuFamily
         font.pixelSize: Style.font.heading
         font.weight: Font.Medium
@@ -309,7 +310,7 @@ Scope {
         visible: text !== ""
         textFormat: Text.PlainText
         text: row.detail
-        color: row.current ? Color.menu.selectedText : Color.menu.text
+        color: row.current ? Commons.Color.menu.selectedText : Commons.Color.menu.text
         opacity: 0.52
         font.family: Style.font.menuFamily
         font.pixelSize: Style.font.bodySmall
@@ -324,7 +325,7 @@ Scope {
       anchors.verticalCenter: parent.verticalCenter
       textFormat: Text.PlainText
       text: row.trailing
-      color: row.current ? Color.menu.selectedText : Color.menu.text
+      color: row.current ? Commons.Color.menu.selectedText : Commons.Color.menu.text
       opacity: 0.58
       font.family: Style.font.menuFamily
       font.pixelSize: Style.font.bodySmall
