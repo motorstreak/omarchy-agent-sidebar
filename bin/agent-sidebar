@@ -13,11 +13,13 @@
 #   agent-sidebar open ID NAME
 #                          Claude, from the list: back to session ID (shown if
 #                          it's running, otherwise resumed)
-#   agent-sidebar handoff NAME
-#                          Claude only: the next SUPER + SHIFT + A (within an
-#                          hour) offers a session named NAME that starts with
+#   agent-sidebar handoff [--no-ask] NAME
+#                          Claude only: a session named NAME that starts with
 #                          the question read from stdin (for moving a new
-#                          topic out of the current session)
+#                          topic out of the current session). A menu asks
+#                          straight away: Enter starts it; otherwise the next
+#                          SUPER + SHIFT + A (within an hour) offers it.
+#                          --no-ask: only the latter
 #
 # Any agent runs through Omarchy's own launcher (`omarchy-agent --inline`), so it
 # starts exactly as SUPER + SHIFT + CTRL + A starts it. Claude Code is the
@@ -68,6 +70,11 @@ first_prompt=$state_dir/first-prompt
 
 case ${1:-} in
 handoff)
+  ask=1
+  if [[ ${2:-} == --no-ask ]]; then
+    ask=0
+    shift
+  fi
   name=${2:-}
   name=${name//$'\n'/ }
   if [[ -z $name ]]; then
@@ -82,6 +89,14 @@ handoff)
     exit 1
   fi
   echo "${name:0:80}" >"$handoff_name"
+  # Asked in the background, so the caller (the agent handing off) goes on.
+  # Enter takes the first option; Escape or "Later" leaves the question waiting.
+  if (( ask )) && command -v omarchy-menu-select >/dev/null; then
+    setsid -f bash -c '
+      choice=$(omarchy-menu-select "$1" "Start it now" "Later (Super + Shift + A)") || exit 0
+      [[ $choice == "Start it now" ]] && exec "$0" new --handoff' \
+      "$(readlink -f "$0")" "New session: ${name:0:60}" </dev/null >/dev/null 2>&1 9>&-
+  fi
   exit 0
   ;;
 first-prompt)
@@ -369,7 +384,7 @@ open)
   fi
   ;;
 *)
-  echo "Usage: agent-sidebar [launch|sessions|new [NAME|--handoff]|open ID NAME|handoff NAME]" >&2
+  echo "Usage: agent-sidebar [launch|sessions|new [NAME|--handoff]|open ID NAME|handoff [--no-ask] NAME]" >&2
   exit 1
   ;;
 esac

@@ -75,9 +75,11 @@ own:
 echo "How do I set the MTU on wg0?" | ~/.config/omarchy/plugins/agent-sidebar/bin/agent-sidebar handoff "NordVPN MTU on wg0"
 ```
 
-For the next hour, the session list offers **Start "NordVPN MTU on wg0" with
-your question** under New session, highlighted, so `Super + Shift + A`,
-`Enter` starts it with the question already sent.
+A menu asks straight away: `Enter` (**Start it now**) opens the new session
+with the question already sent. **Later** (or `Escape`) leaves it waiting: for
+the next hour, the session list offers **Start "NordVPN MTU on wg0" with your
+question** under New session, highlighted, so `Super + Shift + A`, `Enter`
+starts it. `handoff --no-ask NAME` skips the menu.
 
 ## Configure
 
