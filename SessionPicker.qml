@@ -20,7 +20,7 @@ Scope {
   property string script: ""
   property string monitor: ""
   property string handoff: "" // a waiting question's session name
-  property var sessions: [] // [{ id, title, detail, current }], newest first
+  property var sessions: [] // [{ id, title, detail, current, time }], newest first
   property string filter: ""
   property int index: 0
   property string stamp: "" // the date and time a new session is named with
@@ -249,12 +249,29 @@ Scope {
               icon: "󰍩"
               label: modelData.title
               detail: modelData.detail
-              trailing: modelData.current ? "current" : ""
+              when: (modelData.current ? "current · " : "") + root.ago(modelData.time)
             }
           }
         }
       }
     }
+  }
+
+  // When a session last changed, as "5 min ago", "yesterday", "3 weeks ago".
+  function ago(seconds) {
+    if (!seconds) return ""
+    var then = new Date(seconds * 1000), now = new Date()
+    var s = Math.max(0, (now - then) / 1000)
+    if (s < 60) return "just now"
+    if (s < 3600) return Math.floor(s / 60) + " min ago"
+    var days = Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      - new Date(then.getFullYear(), then.getMonth(), then.getDate())) / 86400000)
+    if (days === 0) { var h = Math.floor(s / 3600); return h + (h === 1 ? " hour ago" : " hours ago") }
+    if (days === 1) return "yesterday"
+    if (days < 7) return days + " days ago"
+    if (days < 31) { var w = Math.floor(days / 7); return w + (w === 1 ? " week ago" : " weeks ago") }
+    if (days < 365) { var m = Math.floor(days / 30); return m + (m === 1 ? " month ago" : " months ago") }
+    var y = Math.floor(days / 365); return y + (y === 1 ? " year ago" : " years ago")
   }
 
   component SessionRow: Rectangle {
@@ -265,6 +282,8 @@ Scope {
     property string label: ""
     property string detail: ""
     property string trailing: ""
+    // At the right of the title line.
+    property string when: ""
     readonly property bool current: rowIndex === root.index
 
     width: parent ? parent.width : 0
@@ -294,15 +313,35 @@ Scope {
       anchors.verticalCenter: parent.verticalCenter
       spacing: Style.space(3)
 
-      Text {
+      Item {
         width: parent.width
-        textFormat: Text.PlainText
-        text: row.label
-        color: row.current ? Commons.Color.menu.selectedText : Commons.Color.menu.text
-        font.family: Style.font.menuFamily
-        font.pixelSize: Style.font.heading
-        font.weight: Font.Medium
-        elide: Text.ElideRight
+        height: titleText.implicitHeight
+
+        Text {
+          id: titleText
+          anchors.left: parent.left
+          anchors.right: whenText.left
+          anchors.rightMargin: whenText.text !== "" ? Style.space(10) : 0
+          textFormat: Text.PlainText
+          text: row.label
+          color: row.current ? Commons.Color.menu.selectedText : Commons.Color.menu.text
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.heading
+          font.weight: Font.Medium
+          elide: Text.ElideRight
+        }
+
+        Text {
+          id: whenText
+          anchors.right: parent.right
+          anchors.baseline: titleText.baseline
+          textFormat: Text.PlainText
+          text: row.when
+          color: row.current ? Commons.Color.menu.selectedText : Commons.Color.menu.text
+          opacity: 0.58
+          font.family: Style.font.menuFamily
+          font.pixelSize: Style.font.bodySmall
+        }
       }
 
       Text {

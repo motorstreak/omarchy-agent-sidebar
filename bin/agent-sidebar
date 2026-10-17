@@ -254,7 +254,7 @@ transcript() {
 }
 
 # The newest sidebar sessions for the list, one per line:
-# "<id>\t<title>\t<prompts, newest first>\t<1 if current>".
+# "<id>\t<title>\t<prompts, newest first>\t<1 if current>\t<last change, epoch seconds>".
 list_sessions() {
   local current f id title titles first messages prompt stamp cache cached count=0
   local -A ours=()
@@ -301,7 +301,7 @@ list_sessions() {
     # Sessions without a message can't be resumed; leave them out.
     ((messages)) || continue
     [[ -n $prompt ]] || prompt="(no typed prompts)"
-    printf '%s\t%s\t%s\t%s\n' "$id" "${title//$'\t'/ }" "${prompt//$'\t'/ }" "$([[ $id == "$current" ]] && echo 1)"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$id" "${title//$'\t'/ }" "${prompt//$'\t'/ }" "$([[ $id == "$current" ]] && echo 1)" "${stamp%% *}"
     ((++count >= 100)) && break
   done < <(ls -t "$projects"/*.jsonl 2>/dev/null | head -300)
 }
@@ -315,7 +315,7 @@ show_sessions() {
     --arg monitor "$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')" \
     --arg handoff "$(waiting_handoff)" \
     '{class: $class, script: $script, monitor: $monitor, handoff: $handoff,
-      sessions: [inputs | split("\t") | {id: .[0], title: .[1], detail: .[2], current: (.[3] == "1")}]}')
+      sessions: [inputs | split("\t") | {id: .[0], title: .[1], detail: .[2], current: (.[3] == "1"), time: (.[4] | tonumber? // 0)}]}')
   if ! omarchy-shell -q agent-sidebar-sessions open "$payload" >/dev/null 2>&1 9>&-; then
     notify "Couldn't open the session list; is the Agent Sidebar plugin enabled? (omarchy restart shell after installing)"
   fi

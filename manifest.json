@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "agent-sidebar",
   "name": "Agent Sidebar",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "Navin Samuel",
   "description": "Your Omarchy default coding agent as a sidebar on one key, with a searchable list of saved Claude Code sessions and a New session row on top. Needs the Sidebar plugin.",
   "kinds": [
