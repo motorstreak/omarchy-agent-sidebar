@@ -140,7 +140,7 @@ end
 local function agent_window()
   local session = read_line(state_dir .. "/session-id") or ""
   local legacy = read_line(state_dir .. "/legacy-session")
-  local own = class .. "." .. session:sub(1, 8)
+  local own = class .. ".s" .. session:sub(1, 8)
   local plain
   for _, w in ipairs(hl.get_windows()) do
     if session ~= "" and w.class == own then

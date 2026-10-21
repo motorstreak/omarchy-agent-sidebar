@@ -163,7 +163,9 @@ if ! flock -n 9; then
   exit 0
 fi
 
-# Each Claude session's window has its own class ("<class>.<first 8 of its id>"),
+# Each Claude session's window has its own class ("<class>.s<first 8 of its id>":
+# the "s" because GTK terminals such as Ghostty drop an app id with a part
+# starting with a digit, and the window then opens with their own class),
 # so moving to another session leaves the one before running, hidden, to come
 # back to. Other agents use the plain class. A window from before 0.14.0 has the
 # plain class too: legacy-session records which session it runs.
@@ -171,7 +173,7 @@ legacy_file=$state_dir/legacy-session
 
 session_class() {
   if [[ $agent == claude ]]; then
-    echo "$class.${1:0:8}"
+    echo "$class.s${1:0:8}"
   else
     echo "$class"
   fi
