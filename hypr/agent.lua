@@ -66,7 +66,12 @@ local defaults = {
   sessions = "SUPER + SHIFT + A", -- replaces Omarchy's ChatGPT key
   reset = "SUPER + CTRL + ALT + A",
   escape = true, -- SUPER + ESCAPE hides it (instead of opening the system menu)
+  -- How its windows open: "sidebar", "tiled", "floating", "popped" (floating
+  -- and pinned, as Omarchy's SUPER + O) or "docked" (the Dock plugin's).
+  -- Outside a sidebar, SUPER + A goes to it, and from it back.
+  open_as = "sidebar",
 }
+local OPEN_AS = { sidebar = true, tiled = true, floating = true, popped = true, docked = true }
 
 local config = {}
 for k, v in pairs(defaults) do
@@ -100,6 +105,10 @@ do
     problems[#problems + 1] = "class must be letters, digits, '.', '_' or '-'"
     config.class = defaults.class
   end
+  if not OPEN_AS[config.open_as] then
+    problems[#problems + 1] = 'open_as must be "sidebar", "tiled", "floating", "popped" or "docked"'
+    config.open_as = defaults.open_as
+  end
   if #problems > 0 then
     notify("Problems in ~/.config/omarchy/agent-sidebar.lua: " .. table.concat(problems, "; "))
   end
@@ -112,14 +121,37 @@ local class = config.class
 SIDEBAR_KINDS = SIDEBAR_KINDS or {}
 SIDEBAR_KINDS.agent = { class = class, escape = config.escape }
 
--- Opens floating on the first sidebar workspace; the Sidebar plugin takes it in
--- from there. Matches the plain class and each Claude session's
--- "<class>.<session>", every regex metacharacter escaped.
-hl.window_rule({
-  match = { class = "^" .. class:gsub("[%^%$%(%)%.%[%]%*%+%-%?%{%}|\\]", "\\%0") .. "(\\..+)?$" },
-  float = true,
-  workspace = "special:sidebar",
-})
+local function is_agent(window)
+  local c = window and window.class
+  return c ~= nil and (c == class or c:sub(1, #class + 1) == class .. ".")
+end
+
+-- Where its windows open, by `open_as`. As a sidebar: floating on the first
+-- sidebar workspace, and the Sidebar plugin takes it in from there. Otherwise
+-- on the workspace showing, tiled (then popped out or docked, once open) or
+-- floating. Matches the plain class and each Claude session's
+-- "<class>.<session>", every regex metacharacter escaped. Named rules, made
+-- again or turned off as the option changes.
+local agent_match = { class = "^" .. class:gsub("[%^%$%(%)%.%[%]%*%+%-%?%{%}|\\]", "\\%0") .. "(\\..+)?$" }
+local function open_rules()
+  local function rule(name, on, spec)
+    spec.name, spec.match = name, agent_match
+    spec.enabled = on
+    hl.window_rule(spec)
+  end
+  local mode = config.open_as
+  rule("agent-sidebar-in-sidebar", mode == "sidebar", { float = true, workspace = "special:sidebar" })
+  rule("agent-sidebar-tiled", mode == "tiled" or mode == "popped" or mode == "docked", { tile = true })
+  rule("agent-sidebar-floating", mode == "floating", { float = true, center = true })
+  -- For bin/agent-sidebar, which raises the sidebars' dim only for a sidebar.
+  os.execute("mkdir -p " .. quote(state_dir))
+  local f = io.open(state_dir .. "/open-as", "w")
+  if f then
+    f:write(mode, "\n")
+    f:close()
+  end
+end
+open_rules()
 
 -- The agent's window ------------------------------------------------------------
 
@@ -164,11 +196,13 @@ end
 
 local script = dir .. "/bin/agent-sidebar"
 local function run(command)
-  local api = sidebar_api()
-  if api == nil then
-    return
+  if config.open_as == "sidebar" then
+    local api = sidebar_api()
+    if api == nil then
+      return
+    end
+    api.dim() -- the agent's window rule opens it into a sidebar
   end
-  api.dim() -- the agent's window rule opens it into a sidebar
   hl.exec_cmd("AGENT_SIDEBAR_CLASS=" .. quote(class) .. " " .. quote(script) .. " " .. command)
 end
 
@@ -182,10 +216,76 @@ local function launch()
   end
 end
 
+-- Outside a sidebar --------------------------------------------------------------
+
+-- The window focused before the agent's, to go back to.
+local before_agent = nil
+hl.on("window.active", guard("noting the focused window", function(window)
+  if window and window.address and not is_agent(window) then
+    before_agent = window.address
+  end
+end))
+
+-- To the agent's window: onto the workspace showing if it's tucked away on a
+-- special one (a sidebar, from before), then focused, which brings up its
+-- workspace and monitor.
+local function go_to(window)
+  local ws = window.workspace and window.workspace.name or ""
+  if ws:sub(1, 8) == "special:" then
+    local m = hl.get_active_monitor()
+    local regular = m and m.active_workspace
+    if regular then
+      hl.dispatch(hl.dsp.window.move({ window = "address:" .. window.address, workspace = regular.name, follow = false }))
+    end
+  end
+  hl.dispatch(hl.dsp.focus({ window = "address:" .. window.address }))
+end
+
+-- A new window, once open: popped out or docked, as `open_as` says. Focused
+-- first: both act on the focused window.
+hl.on("window.open", guard("placing the agent's window", function(window)
+  local mode = config.open_as
+  if not is_agent(window) or (mode ~= "popped" and mode ~= "docked") then
+    return
+  end
+  local address = window.address
+  hl.timer(guard("placing the agent's window", function()
+    hl.dispatch(hl.dsp.focus({ window = "address:" .. address }))
+    hl.timer(guard("placing the agent's window", function()
+      local active = hl.get_active_window()
+      if active == nil or active.address ~= address then
+        return
+      end
+      if mode == "popped" then
+        hl.exec_cmd("omarchy-hyprland-window-pop")
+      elseif type(dock) == "table" and dock.toggle then
+        dock.toggle()
+      else
+        notify("open_as = \"docked\" needs the Dock plugin: https://github.com/motorstreak/omarchy-dock")
+      end
+    end), { timeout = 50, type = "oneshot" })
+  end), { timeout = 150, type = "oneshot" })
+end))
+
 -- SUPER + A. Already showing: hide it. Anywhere else (hidden, on a workspace,
 -- or another sidebar showing): it becomes the sidebar and shows. Not running:
 -- launch it.
 local function toggle()
+  if config.open_as ~= "sidebar" then
+    -- Outside a sidebar: to it, and from it back to the window before.
+    local window = agent_window()
+    local active = hl.get_active_window()
+    if window == nil then
+      launch()
+    elseif active and active.address == window.address then
+      if before_agent then
+        hl.dispatch(hl.dsp.focus({ window = "address:" .. before_agent }))
+      end
+    else
+      go_to(window)
+    end
+    return
+  end
   local api = sidebar_api()
   local window = api and agent_window()
   if api == nil then
@@ -198,12 +298,22 @@ local function toggle()
 end
 
 local function show()
+  if config.open_as ~= "sidebar" then
+    local window = agent_window()
+    if window then
+      go_to(window)
+    end
+    return window ~= nil
+  end
   local api = sidebar_api()
   local window = api and agent_window()
   return window ~= nil and api.show_window(window.address)
 end
 
 local function reset()
+  if config.open_as ~= "sidebar" then
+    return toggle()
+  end
   local api = sidebar_api()
   if api == nil then
     return
@@ -232,8 +342,41 @@ end)
 bind(config.reset, "Reset agent sidebar", reset)
 
 -- For bin/agent-sidebar and tests: `hyprctl eval 'agent_sidebar.show()'`.
+-- `open_as`, from the Window Style plugin's panel: applied at once and saved to
+-- ~/.config/omarchy/agent-sidebar.lua (its line replaced, or added).
+local function set_open_as(mode)
+  if not OPEN_AS[mode] then
+    return
+  end
+  config.open_as = mode
+  open_rules()
+  local file = home .. "/.config/omarchy/agent-sidebar.lua"
+  local f = io.open(file, "r")
+  local text = f and f:read("a") or ""
+  if f then
+    f:close()
+  end
+  local line = '  open_as = "' .. mode .. '",'
+  local new, n = text:gsub("\n[ \t]*open_as[ \t]*=[^\n]*", "\n" .. line, 1)
+  if n == 0 then
+    new, n = text:gsub("return%s*{", "return {\n" .. line, 1)
+  end
+  if n == 0 then
+    new = "-- Agent Sidebar options (see the plugin's README).\nreturn {\n" .. line .. "\n}\n"
+  end
+  f = io.open(file, "w")
+  if f then
+    f:write(new)
+    f:close()
+  end
+end
+
 agent_sidebar = {
   toggle = toggle,
   show = show,
   reset = reset,
+  set_open_as = set_open_as,
+  open_as = function()
+    return config.open_as
+  end,
 }

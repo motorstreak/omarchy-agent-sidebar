@@ -119,9 +119,14 @@ settle() {
 }
 trap settle EXIT
 
-# From the session list (not through hypr/agent.lua): raise it here.
+# From the session list (not through hypr/agent.lua): raise it here, when the
+# agent opens as a sidebar (hypr/agent.lua notes how it opens in open-as).
 case ${1:-} in
-new | open) hyprctl eval 'if sidebar and sidebar.dim then sidebar.dim() end' >/dev/null 2>&1 ;;
+new | open)
+  if [[ $(cat "${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-agent-sidebar/open-as" 2>/dev/null || echo sidebar) == sidebar ]]; then
+    hyprctl eval 'if sidebar and sidebar.dim then sidebar.dim() end' >/dev/null 2>&1
+  fi
+  ;;
 esac
 
 for cmd in jq flock hyprctl; do

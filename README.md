@@ -93,8 +93,14 @@ return {
   sessions = "SUPER + SHIFT + A",   -- false keeps Omarchy's ChatGPT key
   reset = "SUPER + CTRL + ALT + A",
   escape = true,                    -- Super + Escape hides it (false: the system menu)
+  open_as = "sidebar",              -- or "tiled", "floating", "popped" (Super + O's), "docked" (Dock plugin)
 }
 ```
+
+`open_as` picks how the agent's windows open. Outside a sidebar, `Super + A`
+goes to the agent's window (bringing up its workspace) and, pressed there,
+back to the window you were in. With the Window Style plugin it's also on its
+panel's All windows tab, as "Agent opens as", which saves it here.
 
 Any key can be set to `false` to leave it unbound. Mistakes in the file are
 shown as an "Agent Sidebar" notification. The look of the sidebar itself
