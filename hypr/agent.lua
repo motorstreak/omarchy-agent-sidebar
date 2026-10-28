@@ -202,6 +202,10 @@ local function run(command)
       return
     end
     api.dim() -- the agent's window rule opens it into a sidebar
+  elseif type(sidebar) == "table" and sidebar.hide then
+    -- A window opens on the focused workspace: a sidebar's, while one shows,
+    -- and the Sidebar plugin would take it in.
+    sidebar.hide()
   end
   hl.exec_cmd("AGENT_SIDEBAR_CLASS=" .. quote(class) .. " " .. quote(script) .. " " .. command)
 end

@@ -125,6 +125,9 @@ case ${1:-} in
 new | open)
   if [[ $(cat "${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-agent-sidebar/open-as" 2>/dev/null || echo sidebar) == sidebar ]]; then
     hyprctl eval 'if sidebar and sidebar.dim then sidebar.dim() end' >/dev/null 2>&1
+  else
+    # Opening on the focused workspace: not a sidebar's (see hypr/agent.lua).
+    hyprctl eval 'if sidebar and sidebar.hide then sidebar.hide() end' >/dev/null 2>&1
   fi
   ;;
 esac
