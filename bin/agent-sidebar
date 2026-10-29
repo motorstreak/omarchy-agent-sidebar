@@ -38,6 +38,12 @@ if [[ -d $state_home/omarchy-sidebar/agent && ! -e $state_dir ]]; then
 fi
 claude_dir=${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 
+# Run from inside a Claude session (a handoff), this script and the terminal it
+# opens inherit that session's variables, and a Claude started with them counts
+# as its child: it saves no transcript, so it can't be resumed or listed here.
+# Every session started from here is a session of its own.
+unset CLAUDECODE AI_AGENT CLAUDE_PID CLAUDE_EFFORT ${!CLAUDE_CODE_*}
+
 notify() {
   notify-send -a "Agent Sidebar" -- "Agent sidebar" "$1" 9>&-
 }
