@@ -292,21 +292,26 @@ list_sessions() {
     cache=$menu_cache/$id
     cached=""
     [[ -f $cache ]] && read -r cached <"$cache"
-    if [[ $cached != "$stamp" ]]; then
+    if [[ $cached != "$stamp p2" ]]; then
       # The last title wins (a session can be renamed). One grep pass over the
       # file: reversing whole transcripts to find it was slow with large ones.
       titles=$(grep -F '"type":"custom-title"' "$f" | jq -r '.customTitle // empty' 2>/dev/null)
       messages=0
       grep -q '"type":"user"' "$f" && messages=1
       # The session's typed prompts, newest first: the list shows the start of
-      # this line and searches all of it. Only lines whose content is text
-      # (typed, not tool results, which can be huge) go to jq; lines that don't
-      # parse (one being written right now) are skipped.
+      # this line and searches all of it. The newest ones are cut to fit, but
+      # the first prompt (up to 200 characters) always ends the line, so a
+      # session can be found by how it started. Only lines whose content is
+      # text (typed, not tool results, which can be huge) go to jq; lines that
+      # don't parse (one being written right now) are skipped.
       prompt=$(grep -F '"message":{"role":"user","content":"' "$f" |
         jq -nrR '[inputs | fromjson? | select(.type == "user" and .isMeta != true and (.message.content | type) == "string")
                   | .message.content | select(startswith("<") | not) | gsub("\\s+"; " ")]
-                 | reverse | join(" · ") | .[0:500]' 2>/dev/null | tr -d '\n')
-      printf '%s\n%s\n%s\n%s\n%s\n' "$stamp" "$(head -n1 <<<"$titles")" "$(tail -n1 <<<"$titles")" \
+                 | if length < 2 then join("") | .[0:500]
+                   else (.[0] | .[0:200]) as $first
+                     | (.[1:] | reverse | join(" · ") | .[0:(497 - ($first | length))]) + " · " + $first
+                   end' 2>/dev/null | tr -d '\n')
+      printf '%s\n%s\n%s\n%s\n%s\n' "$stamp p2" "$(head -n1 <<<"$titles")" "$(tail -n1 <<<"$titles")" \
         "$messages" "$prompt" >"$cache"
     fi
     { read -r _; IFS= read -r first; IFS= read -r title; read -r messages; IFS= read -r prompt; } <"$cache"
