@@ -48,26 +48,12 @@ notify() {
   notify-send -a "Agent Sidebar" -- "Agent sidebar" "$1" 9>&-
 }
 
-# Claude in the terminal's own 16 colours, so it follows the theme the sidebar
-# paints its terminal in (bin/sidebar-theme) the moment one is picked, as cliamp
-# does; its usual themes use fixed colours. Light or dark by the agent's theme
-# (or Omarchy's): colors.toml says `mode = "light"`. The theme is the Sidebar
-# plugin's pick for the "agent" kind.
-ansi_theme() {
-  local name colors="$state_home/omarchy/current/theme/colors.toml" root
-  name=$(head -n1 "$state_home/omarchy-sidebar/themes/agent" 2>/dev/null)
-  if [[ $name =~ ^[A-Za-z0-9._-]+$ ]]; then
-    for root in "$HOME/.config/omarchy/themes" "${OMARCHY_PATH:-/usr/share/omarchy}/themes"; do
-      [[ -f $root/$name/colors.toml ]] && colors=$root/$name/colors.toml && break
-    done
-  fi
-  if grep -qE '^\s*mode\s*=\s*"light"' "$colors" 2>/dev/null; then
-    echo light-ansi
-  else
-    echo dark-ansi
-  fi
-}
-claude=(claude --settings "{\"theme\":\"$(ansi_theme)\"}")
+# Claude's "auto" theme asks the terminal for its background colour and asks
+# again whenever the terminal reports a change (kitty does as soon as its
+# colours are repainted), so a running session goes light or dark with the
+# sidebar's theme. A fixed light or dark theme chosen at launch stayed wrong
+# after a switch between light and dark themes, leaving faint text unreadable.
+claude=(claude --settings '{"theme":"auto"}')
 
 # A question waiting for its own session: its name, and the question itself.
 handoff_name=$state_dir/handoff-name

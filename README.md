@@ -59,8 +59,8 @@ Omarchy's launcher can't pass Claude session options, so Claude is run
 directly, pinned to one session: closing the sidebar and pressing `Super + A`
 resumes the same conversation. It uses your normal Claude settings rather than
 the auto permission mode Omarchy's launcher starts Claude in, and Claude's
-"ANSI colours only" theme (light or dark by the sidebar's theme), so all of it
-follows the colours the Sidebar plugin's `Super + Alt + T` gives it.
+"Auto (match terminal)" theme, so it goes light or dark with the theme the
+Sidebar plugin's `Super + Alt + T` gives it, even in a session already running.
 
 Other agents start through Omarchy's own launcher, exactly as
 `Super + Shift + Ctrl + A` starts them. With no default agent set, `Super + A`
