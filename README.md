@@ -24,16 +24,17 @@ sidebars.
 
 | Key | Action |
 |---|---|
-| `Super + A` | Make the agent a sidebar and show it (launching it if needed); hide it if it's already showing |
-| `Super + Shift + A` | Claude: the session list (below). Other agents: close the running one and start it fresh |
-| `Super + Ctrl + Alt + A` | The agent sidebar back at its default size, against its edge at full height (forgets where you moved it; the edge stays) |
+| `Super + Alt + A` | Make the agent a sidebar and show it (launching it if needed); hide it if it's already showing |
+| `Super + Ctrl + Alt + A` | Claude: the session list (below). Other agents: close the running one and start it fresh |
+| `Super + Ctrl + Alt + Shift + A` | The agent sidebar back at its default size, against its edge at full height (forgets where you moved it; the edge stays) |
 
-`Super + Shift + A` replaces Omarchy's ChatGPT key. In the sidebar, every key
-of the Sidebar plugin works as in any other sidebar.
+None of these is one of Omarchy's keys, so Omarchy's own (`Super + A` select
+all, `Super + Shift + A` ChatGPT, `Super + Escape` system menu) keep working.
+In the sidebar, every key of the Sidebar plugin works as in any other sidebar.
 
 ## The session list
 
-`Super + Shift + A` lists the sessions the sidebar started, newest first (up
+`Super + Ctrl + Alt + A` lists the sessions the sidebar started, newest first (up
 to 100), with **New session** always on top:
 
 - Press `Enter` straight away for a new session named with the date and time.
@@ -56,14 +57,14 @@ message, and in Claude's `/resume` picker too; renaming one with Claude's
 ## Claude Code
 
 Omarchy's launcher can't pass Claude session options, so Claude is run
-directly, pinned to one session: closing the sidebar and pressing `Super + A`
+directly, pinned to one session: closing the sidebar and pressing `Super + Alt + A`
 resumes the same conversation. It uses your normal Claude settings rather than
 the auto permission mode Omarchy's launcher starts Claude in, and Claude's
 "Auto (match terminal)" theme, so it goes light or dark with the theme the
 Sidebar plugin's `Super + Alt + T` gives it, even in a session already running.
 
 Other agents start through Omarchy's own launcher, exactly as
-`Super + Shift + Ctrl + A` starts them. With no default agent set, `Super + A`
+`Super + Shift + Ctrl + A` starts them. With no default agent set, `Super + Alt + A`
 opens Omarchy's agent chooser.
 
 ### Handing off a new topic
@@ -78,7 +79,7 @@ echo "How do I set the MTU on wg0?" | ~/.config/omarchy/plugins/agent-sidebar/bi
 A menu asks straight away: `Enter` (**Start it now**) opens the new session
 with the question already sent. **Later** (or `Escape`) leaves it waiting: for
 the next hour, the session list offers **Start "NordVPN MTU on wg0" with your
-question** under New session, highlighted, so `Super + Shift + A`, `Enter`
+question** under New session, highlighted, so `Super + Ctrl + Alt + A`, `Enter`
 starts it. `handoff --no-ask NAME` skips the menu.
 
 ## Configure
@@ -89,15 +90,15 @@ then reload Hyprland (`hyprctl reload`). All options, with their defaults:
 ```lua
 return {
   class = "sidebar.agent",          -- window class of the agent's terminal
-  toggle = "SUPER + A",
-  sessions = "SUPER + SHIFT + A",   -- false keeps Omarchy's ChatGPT key
-  reset = "SUPER + CTRL + ALT + A",
-  escape = true,                    -- Super + Escape hides it (false: the system menu)
+  toggle = "SUPER + ALT + A",
+  sessions = "SUPER + CTRL + ALT + A",   -- false: no session list key
+  reset = "SUPER + CTRL + ALT + SHIFT + A",
+  escape = false,                   -- true: Super + Escape in it hides it (instead of the system menu)
   open_as = "sidebar",              -- or "tiled", "floating", "popped" (Super + O's), "docked" (Dock plugin)
 }
 ```
 
-`open_as` picks how the agent's windows open. Outside a sidebar, `Super + A`
+`open_as` picks how the agent's windows open. Outside a sidebar, `Super + Alt + A`
 goes to the agent's window (bringing up its workspace) and, pressed there,
 back to the window you were in. With the Window Style plugin it's also on its
 panel's All windows tab, as "Agent opens as", which saves it here.

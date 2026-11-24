@@ -2,7 +2,7 @@
 # Launches the agent sidebar (run by hypr/agent.lua) with your Omarchy default
 # coding agent (`omarchy default agent`).
 #   agent-sidebar launch   open the sidebar
-#   agent-sidebar sessions SUPER + SHIFT + A. Claude: open the session list
+#   agent-sidebar sessions SUPER + CTRL + ALT + A. Claude: open the session list
 #                          (SessionPicker.qml). Other agents: start afresh
 #   agent-sidebar new [--] [NAME]
 #                          Claude, from the list: a new session named NAME
@@ -18,7 +18,7 @@
 #                          the question read from stdin (for moving a new
 #                          topic out of the current session). A menu asks
 #                          straight away: Enter starts it; otherwise the next
-#                          SUPER + SHIFT + A (within an hour) offers it.
+#                          SUPER + CTRL + ALT + A (within an hour) offers it.
 #                          --no-ask: only the latter
 #
 # Any agent runs through Omarchy's own launcher (`omarchy-agent --inline`), so it
@@ -46,6 +46,21 @@ unset CLAUDECODE AI_AGENT CLAUDE_PID CLAUDE_EFFORT ${!CLAUDE_CODE_*}
 
 notify() {
   notify-send -a "Agent Sidebar" -- "Agent sidebar" "$1" 9>&-
+}
+
+# The handoff menu's "Later" choice, naming the session list key as set in
+# ~/.config/omarchy/agent-sidebar.lua (the default otherwise; none if it's off).
+later_label() {
+  local key="SUPER + CTRL + ALT + A" line
+  line=$(grep -E '^[[:space:]]*sessions[[:space:]]*=' "$HOME/.config/omarchy/agent-sidebar.lua" 2>/dev/null | tail -1)
+  if [[ $line =~ =[[:space:]]*\"([^\"]+)\" ]]; then
+    key=${BASH_REMATCH[1]}
+  elif [[ $line =~ =[[:space:]]*false ]]; then
+    echo "Later"
+    return
+  fi
+  key=${key,,}
+  echo "Later ($(sed -E 's/(^| )([a-z])/\1\u\2/g' <<<"$key"))"
 }
 
 # Claude's "auto" theme asks the terminal for its background colour and asks
@@ -85,9 +100,9 @@ handoff)
   # Enter takes the first option; Escape or "Later" leaves the question waiting.
   if (( ask )) && command -v omarchy-menu-select >/dev/null; then
     setsid -f bash -c '
-      choice=$(omarchy-menu-select "$1" "Start it now" "Later (Super + Shift + A)") || exit 0
+      choice=$(omarchy-menu-select "$1" "Start it now" "$2") || exit 0
       [[ $choice == "Start it now" ]] && exec "$0" new --handoff' \
-      "$(readlink -f "$0")" "New session: ${name:0:60}" </dev/null >/dev/null 2>&1 9>&-
+      "$(readlink -f "$0")" "New session: ${name:0:60}" "$(later_label)" </dev/null >/dev/null 2>&1 9>&-
   fi
   exit 0
   ;;

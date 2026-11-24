@@ -2,17 +2,20 @@
 --
 -- Your Omarchy default coding agent (`omarchy default agent`) as a sidebar of
 -- the Sidebar plugin, which it needs: this file adds the agent as a kind of
--- sidebar there (its own remembered place, theme and SUPER + ESCAPE) and binds
+-- sidebar there (its own remembered place and theme) and binds
 -- the agent's keys. With Claude Code it also keeps saved, searchable sessions
 -- (see bin/agent-sidebar and SessionPicker.qml).
 --
---   SUPER + A                the agent as the sidebar: shown, launched if
---                            needed; hidden if it's showing
---   SUPER + SHIFT + A        Claude: the session list, with "New session" on
---                            top (named by what you typed, or the date and
---                            time). Other agents: a fresh start
---   SUPER + CTRL + ALT + A   the agent sidebar back at its default size and
---                            place
+--   SUPER + ALT + A                  the agent as the sidebar: shown, launched
+--                                    if needed; hidden if it's showing
+--   SUPER + CTRL + ALT + A           Claude: the session list, with "New
+--                                    session" on top (named by what you typed,
+--                                    or the date and time). Other agents: a
+--                                    fresh start
+--   SUPER + CTRL + ALT + SHIFT + A   the agent sidebar back at its default size
+--                                    and place
+--
+-- None of them is one of Omarchy's keys, so all of Omarchy's stay as they are.
 --
 -- Loaded into the running Hyprland by Service.qml with AGENT_SIDEBAR_DIR set to
 -- the plugin folder. Options can be changed in
@@ -62,13 +65,13 @@ os.execute("old=" .. quote(state_home .. "/omarchy-sidebar/agent") .. "; new=" .
 
 local defaults = {
   class = "sidebar.agent", -- the agent terminal's window class
-  toggle = "SUPER + A",
-  sessions = "SUPER + SHIFT + A", -- replaces Omarchy's ChatGPT key
-  reset = "SUPER + CTRL + ALT + A",
-  escape = true, -- SUPER + ESCAPE hides it (instead of opening the system menu)
+  toggle = "SUPER + ALT + A",
+  sessions = "SUPER + CTRL + ALT + A",
+  reset = "SUPER + CTRL + ALT + SHIFT + A",
+  escape = false, -- true: SUPER + ESCAPE in it hides it (instead of Omarchy's system menu)
   -- How its windows open: "sidebar", "tiled", "floating", "popped" (floating
   -- and pinned, as Omarchy's SUPER + O) or "docked" (the Dock plugin's).
-  -- Outside a sidebar, SUPER + A goes to it, and from it back.
+  -- Outside a sidebar, SUPER + ALT + A goes to it, and from it back.
   open_as = "sidebar",
 }
 local OPEN_AS = { sidebar = true, tiled = true, floating = true, popped = true, docked = true }
@@ -271,7 +274,7 @@ hl.on("window.open", guard("placing the agent's window", function(window)
   end), { timeout = 150, type = "oneshot" })
 end))
 
--- SUPER + A. Already showing: hide it. Anywhere else (hidden, on a workspace,
+-- SUPER + ALT + A. Already showing: hide it. Anywhere else (hidden, on a workspace,
 -- or another sidebar showing): it becomes the sidebar and shows. Not running:
 -- launch it.
 local function toggle()
