@@ -6,14 +6,12 @@
 -- the agent's keys. With Claude Code it also keeps saved, searchable sessions
 -- (see bin/agent-sidebar and SessionPicker.qml).
 --
---   SUPER + ALT + A                  the agent as the sidebar: shown, launched
---                                    if needed; hidden if it's showing
---   SUPER + CTRL + ALT + A           Claude: the session list, with "New
---                                    session" on top (named by what you typed,
---                                    or the date and time). Other agents: a
---                                    fresh start
---   SUPER + CTRL + ALT + SHIFT + A   the agent sidebar back at its default size
---                                    and place
+--   SUPER + ALT + A   the agent as the sidebar: shown, launched if needed;
+--                     hidden if it's showing
+--   SUPER + ALT + C   Claude: the session list, with "New session" on top
+--                     (named by what you typed, or the date and time). Other
+--                     agents: a fresh start
+--   SUPER + ALT + R   the agent sidebar back at its default size and place
 --
 -- None of them is one of Omarchy's keys, so all of Omarchy's stay as they are.
 --
@@ -66,8 +64,8 @@ os.execute("old=" .. quote(state_home .. "/omarchy-sidebar/agent") .. "; new=" .
 local defaults = {
   class = "sidebar.agent", -- the agent terminal's window class
   toggle = "SUPER + ALT + A",
-  sessions = "SUPER + CTRL + ALT + A",
-  reset = "SUPER + CTRL + ALT + SHIFT + A",
+  sessions = "SUPER + ALT + C",
+  reset = "SUPER + ALT + R",
   escape = false, -- true: SUPER + ESCAPE in it hides it (instead of Omarchy's system menu)
   -- How its windows open: "sidebar", "tiled", "floating", "popped" (floating
   -- and pinned, as Omarchy's SUPER + O) or "docked" (the Dock plugin's).

@@ -25,8 +25,8 @@ sidebars.
 | Key | Action |
 |---|---|
 | `Super + Alt + A` | Make the agent a sidebar and show it (launching it if needed); hide it if it's already showing |
-| `Super + Ctrl + Alt + A` | Claude: the session list (below). Other agents: close the running one and start it fresh |
-| `Super + Ctrl + Alt + Shift + A` | The agent sidebar back at its default size, against its edge at full height (forgets where you moved it; the edge stays) |
+| `Super + Alt + C` | Claude: the session list (below). Other agents: close the running one and start it fresh |
+| `Super + Alt + R` | The agent sidebar back at its default size, against its edge at full height (forgets where you moved it; the edge stays) |
 
 None of these is one of Omarchy's keys, so Omarchy's own (`Super + A` select
 all, `Super + Shift + A` ChatGPT, `Super + Escape` system menu) keep working.
@@ -34,7 +34,7 @@ In the sidebar, every key of the Sidebar plugin works as in any other sidebar.
 
 ## The session list
 
-`Super + Ctrl + Alt + A` lists the sessions the sidebar started, newest first (up
+`Super + Alt + C` lists the sessions the sidebar started, newest first (up
 to 100), with **New session** always on top:
 
 - Press `Enter` straight away for a new session named with the date and time.
@@ -79,7 +79,7 @@ echo "How do I set the MTU on wg0?" | ~/.config/omarchy/plugins/agent-sidebar/bi
 A menu asks straight away: `Enter` (**Start it now**) opens the new session
 with the question already sent. **Later** (or `Escape`) leaves it waiting: for
 the next hour, the session list offers **Start "NordVPN MTU on wg0" with your
-question** under New session, highlighted, so `Super + Ctrl + Alt + A`, `Enter`
+question** under New session, highlighted, so `Super + Alt + C`, `Enter`
 starts it. `handoff --no-ask NAME` skips the menu.
 
 ## Configure
@@ -91,8 +91,8 @@ then reload Hyprland (`hyprctl reload`). All options, with their defaults:
 return {
   class = "sidebar.agent",          -- window class of the agent's terminal
   toggle = "SUPER + ALT + A",
-  sessions = "SUPER + CTRL + ALT + A",   -- false: no session list key
-  reset = "SUPER + CTRL + ALT + SHIFT + A",
+  sessions = "SUPER + ALT + C",   -- false: no session list key
+  reset = "SUPER + ALT + R",
   escape = false,                   -- true: Super + Escape in it hides it (instead of the system menu)
   open_as = "sidebar",              -- or "tiled", "floating", "popped" (Super + O's), "docked" (Dock plugin)
 }

@@ -6,7 +6,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
 
-// The Claude session list (SUPER + CTRL + ALT + A), in the look of Omarchy's menus.
+// The Claude session list (SUPER + ALT + C), in the look of Omarchy's menus.
 // bin/agent-sidebar sends the sessions; typing searches their names and
 // prompts. "New session" stays on top whatever the search: picked with an
 // empty search it's named with the date and time, otherwise with what was

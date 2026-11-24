@@ -2,7 +2,7 @@
 # Launches the agent sidebar (run by hypr/agent.lua) with your Omarchy default
 # coding agent (`omarchy default agent`).
 #   agent-sidebar launch   open the sidebar
-#   agent-sidebar sessions SUPER + CTRL + ALT + A. Claude: open the session list
+#   agent-sidebar sessions SUPER + ALT + C. Claude: open the session list
 #                          (SessionPicker.qml). Other agents: start afresh
 #   agent-sidebar new [--] [NAME]
 #                          Claude, from the list: a new session named NAME
@@ -18,7 +18,7 @@
 #                          the question read from stdin (for moving a new
 #                          topic out of the current session). A menu asks
 #                          straight away: Enter starts it; otherwise the next
-#                          SUPER + CTRL + ALT + A (within an hour) offers it.
+#                          SUPER + ALT + C (within an hour) offers it.
 #                          --no-ask: only the latter
 #
 # Any agent runs through Omarchy's own launcher (`omarchy-agent --inline`), so it
@@ -51,7 +51,7 @@ notify() {
 # The handoff menu's "Later" choice, naming the session list key as set in
 # ~/.config/omarchy/agent-sidebar.lua (the default otherwise; none if it's off).
 later_label() {
-  local key="SUPER + CTRL + ALT + A" line
+  local key="SUPER + ALT + C" line
   line=$(grep -E '^[[:space:]]*sessions[[:space:]]*=' "$HOME/.config/omarchy/agent-sidebar.lua" 2>/dev/null | tail -1)
   if [[ $line =~ =[[:space:]]*\"([^\"]+)\" ]]; then
     key=${BASH_REMATCH[1]}
